@@ -26,3 +26,7 @@ Thumbs.db
 
 # Local data
 data/
+
+# Telegram session files
+*.session
+*.session-journal
