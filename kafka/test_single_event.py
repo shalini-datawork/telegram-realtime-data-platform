@@ -25,7 +25,7 @@ event = {
 }
 
 future = producer.send(
-    "telegram-messages-clean",
+    "telegram-messages-test",
     key=event["channel_id"],
     value=event,
 )

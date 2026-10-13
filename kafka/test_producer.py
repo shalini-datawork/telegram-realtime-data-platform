@@ -7,7 +7,7 @@ producer = KafkaProducer(
 )
 
 future = producer.send(
-   "telegram-messages",
+   "telegram-messages-test",
    key="test-channel",
    value="Hello from Python Kafka Producer!"
 )
