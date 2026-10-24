@@ -19,6 +19,7 @@ kafka_df = (
     .option("kafka.bootstrap.servers", "localhost:9092")
     .option("subscribe", "telegram-messages-ingest")
     .option("startingOffsets", "earliest")
+    .option("failOnDataLoss", "true")
     .option("maxOffsetsPerTrigger", 100)
     .load()
 )
@@ -39,19 +40,25 @@ query = (
     bronze_df.writeStream
     .format("parquet")
     .outputMode("append")
-    .option("path", "data/bronze/kafka_messages_ingest")
+    .option("path", "data/bronze/kafka_messages_live")
     .option(
         "checkpointLocation",
-        "data/checkpoints/kafka_bronze_ingest",
+        "data/checkpoints/kafka_bronze_live",
     )
-    .trigger(availableNow=True)
+    .trigger(processingTime="30 seconds")
     .start()
 )
 
+# Keep processing new Kafka messages until stopped
 try:
-    print("Processing records currently available in Kafka.")
+    print("Continuous Kafka → Bronze streaming started.")
+    print("Press Ctrl+C to stop.")
     query.awaitTermination()
+
+except KeyboardInterrupt:
+    print("Stopping streaming gracefully...")
+
 finally:
     query.stop()
     spark.stop()
-    print("Bronze streaming test stopped.")
+    print("Bronze streaming stopped.")
