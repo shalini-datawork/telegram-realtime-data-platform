@@ -30,3 +30,6 @@ data/
 # Telegram session files
 *.session
 *.session-journal
+
+# Local backup files
+*.bak
