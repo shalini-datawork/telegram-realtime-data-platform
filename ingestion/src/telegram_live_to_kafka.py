@@ -16,17 +16,29 @@ api_hash = os.environ["TELEGRAM_API_HASH"]
 session_name = os.getenv("TELEGRAM_SESSION_NAME", "telegram_ingestion")
 
 session_path = Path(session_name)
+
 if not session_path.is_absolute():
     session_path = ROOT_DIR / session_path
 
+CONFIG_FILE = ROOT_DIR / "config" / "telegram_channels.json"
+
+with CONFIG_FILE.open(encoding="utf-8") as file:
+    channel_config = json.load(file)
+
+channel_categories = {
+    username.lstrip("@").lower(): category
+    for category, usernames in channel_config.items()
+    for username in usernames
+}
+
 channels = [
-    channel.strip()
-    for channel in os.getenv("TELEGRAM_CHANNELS", "").split(",")
-    if channel.strip()
+    username.lstrip("@")
+    for usernames in channel_config.values()
+    for username in usernames
 ]
 
 if not channels:
-    raise ValueError("No Telegram channels configured in TELEGRAM_CHANNELS")
+    raise ValueError("No Telegram channels configured")
 
 KAFKA_SERVER = "localhost:9092"
 KAFKA_TOPIC = "telegram-messages-ingest"
@@ -56,6 +68,10 @@ def create_event(channel, message):
         "event_id": f"{channel.id}_{message.id}",
         "channel_id": channel.id,
         "channel_name": channel.username or str(channel.id),
+        "category": channel_categories.get(
+            (channel.username or "").lower(),
+            "Unknown",
+        ),
         "message_id": message.id,
         "event_time": (
             message_date.isoformat() if message_date else None
@@ -82,6 +98,13 @@ async def main():
 
         for channel in channels:
             entity = await client.get_entity(channel)
+
+            if not getattr(entity, "broadcast", False):
+                raise ValueError(f"Not a broadcast channel: {channel}")
+
+            if (entity.username or "").lower() != channel.lower():
+                raise ValueError(f"Channel username mismatch: {channel}")
+
             channel_entities.append(entity)
             print(f"Monitoring channel: {channel} (ID: {entity.id})")
 
